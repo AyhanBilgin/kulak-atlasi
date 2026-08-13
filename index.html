@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kulak Akupunkturu Tedavi Atlası</title>
+
+  <!-- Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { display: flex; height: 100vh; background-color: #f4f6f9; }
+    .container { display: flex; width: 100%; min-height: 100vh; }
+    
+    .sidebar { width: 340px; background: #ffffff; border-right: 1px solid #e0e0e0; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; flex-shrink: 0; }
+    .sidebar-content { overflow-y: auto; flex: 1; max-height: 520px; }
+    .sidebar h2 { margin-bottom: 15px; font-size: 1.2rem; color: #333; }
+    .sidebar input[type="text"] { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 6px; }
+    .sidebar ul { list-style: none; }
+    .sidebar li { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; height: 42px; }
+    .sidebar li:hover { background-color: #eef2ff; color: #4f46e5; }
+    .protocol-title { flex: 1; font-weight: 500; }
+    
+    .action-btn { background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 2px 4px; opacity: 0.7; display: none; }
+    .action-btn:hover { opacity: 1; }
+
+    .add-form { border-top: 1px solid #eee; padding-top: 15px; margin-top: 15px; display: none; }
+    
+    .form-accordion summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    .form-accordion summary::-webkit-details-marker { display: none; }
+
+    .accordion-icon {
+      font-size: 0.8rem;
+      transition: transform 0.2s ease;
+      display: none;
+    }
+    .form-accordion[open] .accordion-icon { transform: rotate(180deg); }
+
+    .add-form label { font-size: 0.75rem; color: #666; display: block; margin-top: 6px; }
+    .add-form input, .add-form textarea, .add-form button { width: 100%; margin-bottom: 8px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; }
+    .add-form textarea { resize: vertical; height: 70px; }
+    .btn-group { display: flex; gap: 5px; margin-top: 5px; }
+    .add-form button { background: #4f46e5; color: white; border: none; cursor: pointer; font-weight: bold; padding: 10px; }
+    #cancel-btn { background: #6b7280; display: none; }
+
+    .admin-toggle-btn {
+      margin-top: 10px;
+      padding: 6px 10px;
+      font-size: 0.75rem;
+      background: transparent;
+      border: 1px dashed #cbd5e1;
+      color: #64748b;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+    }
+    .admin-toggle-btn:hover { background: #f1f5f9; color: #334155; }
+
+    .content { flex: 1; padding: 30px; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
+    .content h1 { margin-bottom: 15px; color: #111827; text-align: center; }
+    
+    .text-slider-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 750px;
+      margin-bottom: 20px;
+      display: none;
+      align-items: center;
+    }
+
+    .points-container {
+      width: 100%;
+      background: #ffffff;
+      border-left: 5px solid #4f46e5;
+      padding: 18px 22px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      min-height: 140px;
+    }
+    .points-title { font-size: 0.9rem; font-weight: bold; color: #4f46e5; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    .points-list { 
+      list-style: none; 
+      display: grid; 
+      grid-template-columns: repeat(2, 1fr); 
+      gap: 10px; 
+    }
+    
+    .points-list li {
+      background: #f3f4f6;
+      padding: 8px 12px;
+      border-radius: 6px;
+      color: #374151;
+      font-size: 0.95rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+    }
+    .points-list li::before {
+      content: "•";
+      color: #4f46e5;
+      font-size: 1.4rem;
+      margin-right: 10px;
+      line-height: 0;
+    }
+
+    .text-details-content {
+      color: #374151;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      white-space: pre-line;
+      background: #f8fafc;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      max-height: 350px;
+      overflow-y: auto;
+    }
+
+    .text-nav-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #ffffff;
+      color: #4f46e5;
+      border: 1px solid #e2e8f0;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      transition: 0.2s;
+      z-index: 10;
+    }
+    .text-nav-arrow:hover { background: #4f46e5; color: white; }
+    .text-arrow-left { left: -18px; }
+    .text-arrow-right { right: -18px; }
+
+    .slider-wrapper { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; max-width: 750px; }
+    .image-card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); width: 100%; text-align: center; }
+    .image-card img { max-width: 100%; height: auto; max-height: 500px; border-radius: 8px; object-fit: contain; }
+    
+    .nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(79, 70, 229, 0.85); color: white; border: none; width: 42px; height: 42px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: 0.2s; z-index: 10; }
+    .nav-arrow:hover { background: #4f46e5; transform: translateY(-50%) scale(1.1); }
+    .arrow-left { left: -20px; }
+    .arrow-right { right: -20px; }
+
+    @media (max-width: 1024px) {
+      body { height: auto; overflow-x: hidden; }
+      .container { flex-direction: column; }
+      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e0e0e0; }
+      .content { padding: 15px; width: 100%; }
+      .accordion-icon { display: inline-block; }
+      .form-accordion summary {
+        background: #f8fafc;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+      }
+      .add-form-content { padding-top: 10px; }
+      .points-list { grid-template-columns: 1fr; }
+      .arrow-left { left: 5px; }
+      .arrow-right { right: 5px; }
+      .text-arrow-left { left: -10px; }
+      .text-arrow-right { right: -10px; }
+    }
+  </style>
+  <!-- PWA Tanımlamaları -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kulak Atlası">
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('Service Worker kayıtlı:', reg))
+        .catch(err => console.error('Service Worker hatası:', err));
+    });
+  }
+</script>
+</head>
+<body>
+
+  <div class="container">
+    <aside class="sidebar">
+      <div class="sidebar-content">
+        <h2>Protokoller</h2>
+        <input type="text" id="search" placeholder="Protokol ara..." onkeyup="filterProtocols()">
+        <ul id="protocol-list"></ul>
+      </div>
+
+      <!-- Admin Giriş/Çıkış Butonu -->
+      <button class="admin-toggle-btn" id="admin-btn" onclick="toggleAdminMode()">🔐 Admin Girişi</button>
+
+      <!-- Yalnızca Admin Görünümünde Açılan Form -->
+      <div class="add-form" id="admin-form-container">
+        <details class="form-accordion" id="form-accordion" open>
+          <summary>
+            <h3 id="form-header" style="display:inline-block;">Yeni Protokol Ekle</h3>
+            <span class="accordion-icon">▼</span>
+          </summary>
+          <div class="add-form-content">
+            <input type="text" id="new-title" placeholder="Protokol Adı">
+            <textarea id="new-points" placeholder="Noktalar (1. Kart - Her noktayı yeni satıra yazabilirsiniz)"></textarea>
+            <textarea id="new-notes" placeholder="Noktalar Açıklaması (2. ve Gerekirse 3. Kart)"></textarea>
+            
+            <label>Kulak Haritası Görselleri (Çoklu Seçebilirsiniz):</label>
+            <input type="file" id="new-img1" accept="image/*" multiple>
+            
+            <div class="btn-group">
+              <button id="save-btn" onclick="addNewProtocol()">Kaydet ve Ekle</button>
+              <button id="cancel-btn" onclick="resetForm()">İptal</button>
+            </div>
+          </div>
+        </details>
+      </div>
+    </aside>
+
+    <main class="content">
+      <h1 id="title">Bir Protokol Seçin</h1>
+      
+      <!-- Çoklu Kart Destekli Metin Slider'ı -->
+      <div class="text-slider-wrapper" id="text-slider-wrapper">
+        <button class="text-nav-arrow text-arrow-left" id="text-prev-btn" onclick="changeTextCard(-1)">◀</button>
+        
+        <div class="points-container" id="points-box">
+          <div class="points-title" id="text-card-title">Tedavi Noktaları</div>
+          <ul class="points-list" id="points-list"></ul>
+          <div class="text-details-content" id="notes-content" style="display: none;"></div>
+        </div>
+
+        <button class="text-nav-arrow text-arrow-right" id="text-next-btn" onclick="changeTextCard(1)">▶</button>
+      </div>
+      
+      <div class="slider-wrapper" id="card" style="display: none;">
+        <button class="nav-arrow arrow-left" onclick="changeImage(-1)" id="prev-btn">◀</button>
+        <div class="image-card">
+          <img id="protocol-image" src="" alt="Tedavi Görseli">
+        </div>
+        <button class="nav-arrow arrow-right" onclick="changeImage(1)" id="next-btn">▶</button>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://bxdieehllivgsywsyusu.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_CduozESdThk6nrsqlHGcbw_fu8WxBOQ";
+
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      global: {
+        headers: { Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}` }
+      },
+      auth: { persistSession: false }
+    });
+
+    const ADMIN_PASSWORD = "1234";
+    let isAdmin = false;
+
+    let protocols = [];
+    let editingId = null;
+    let currentImages = [];
+    let currentImageIndex = 0;
+
+    let textCards = [];
+    let currentTextCardIndex = 0;
+
+    function toggleAdminMode() {
+      if (isAdmin) {
+        isAdmin = false;
+        document.getElementById('admin-form-container').style.display = 'none';
+        document.getElementById('admin-btn').textContent = '🔐 Admin Girişi';
+        renderList(protocols);
+        alert("Admin oturumu kapatıldı.");
+      } else {
+        const password = prompt("Yönetici Şifrenizi Girin:");
+        if (password === ADMIN_PASSWORD) {
+          isAdmin = true;
+          document.getElementById('admin-form-container').style.display = 'block';
+          document.getElementById('admin-btn').textContent = '🔓 Çıkış Yap (Admin)';
+          renderList(protocols);
+        } else if (password !== null) {
+          alert("Hatalı şifre!");
+        }
+      }
+    }
+
+    async function loadProtocolsFromCloud() {
+      const { data, error } = await _supabase
+        .from('protocols')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error("Yükleme hatası:", error);
+        return;
+      }
+
+      protocols = data || [];
+      renderList(protocols);
+    }
+
+    function handleResponsiveForm() {
+      const accordion = document.getElementById('form-accordion');
+      if (window.innerWidth <= 768) {
+        accordion.removeAttribute('open');
+      } else {
+        accordion.setAttribute('open', '');
+      }
+    }
+
+    function renderList(list) {
+      const listElement = document.getElementById('protocol-list');
+      listElement.innerHTML = '';
+
+      list.forEach(item => {
+        const li = document.createElement('li');
+
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'protocol-title';
+        titleSpan.textContent = item.name;
+        titleSpan.onclick = () => showDetail(item);
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'action-btn';
+        editBtn.innerHTML = '✏️';
+        editBtn.style.display = isAdmin ? 'inline-block' : 'none';
+        editBtn.onclick = (e) => { e.stopPropagation(); openEditMode(item); };
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'action-btn';
+        deleteBtn.innerHTML = '🗑️';
+        deleteBtn.style.display = isAdmin ? 'inline-block' : 'none';
+        deleteBtn.onclick = (e) => { e.stopPropagation(); deleteProtocol(item.id); };
+
+        const btnContainer = document.createElement('div');
+        btnContainer.appendChild(editBtn);
+        btnContainer.appendChild(deleteBtn);
+
+        li.appendChild(titleSpan);
+        li.appendChild(btnContainer);
+        listElement.appendChild(li);
+      });
+    }
+
+    function splitTextIntoCards(text, maxLength = 450) {
+      if (text.length <= maxLength) return [text];
+      
+      let splitPos = text.lastIndexOf('\n', maxLength);
+      if (splitPos === -1 || splitPos < 200) {
+        splitPos = text.lastIndexOf('. ', maxLength);
+      }
+      if (splitPos === -1) splitPos = maxLength;
+
+      const part1 = text.substring(0, splitPos).trim();
+      const part2 = text.substring(splitPos).trim();
+      return [part1, part2];
+    }
+
+    function showDetail(item) {
+      document.getElementById('title').textContent = item.name;
+      
+      textCards = [];
+      
+      if (item.points && item.points.trim() !== '') {
+        textCards.push({ type: 'points', title: 'Tedavi Noktaları', content: item.points });
+      }
+
+      if (item.notes && item.notes.trim() !== '') {
+        const noteParts = splitTextIntoCards(item.notes);
+        if (noteParts.length > 1) {
+          textCards.push({ type: 'notes', title: 'Noktalar Açıklaması (1/2)', content: noteParts[0] });
+          textCards.push({ type: 'notes', title: 'Noktalar Açıklaması (2/2)', content: noteParts[1] });
+        } else {
+          textCards.push({ type: 'notes', title: 'Noktalar Açıklaması', content: noteParts[0] });
+        }
+      }
+
+      currentTextCardIndex = 0;
+      updateTextSlider();
+
+      currentImages = Array.isArray(item.images) ? item.images : [item.image];
+      currentImages = currentImages.filter(img => img);
+      currentImageIndex = 0;
+
+      updateSlider();
+      document.getElementById('card').style.display = currentImages.length > 0 ? 'flex' : 'none';
+      
+      if (window.innerWidth <= 1024) {
+        document.querySelector('.content').scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    function changeTextCard(direction) {
+      if (textCards.length === 0) return;
+      currentTextCardIndex += direction;
+      if (currentTextCardIndex < 0) currentTextCardIndex = textCards.length - 1;
+      if (currentTextCardIndex >= textCards.length) currentTextCardIndex = 0;
+      updateTextSlider();
+    }
+
+    function updateTextSlider() {
+      const sliderWrapper = document.getElementById('text-slider-wrapper');
+      const prevBtn = document.getElementById('text-prev-btn');
+      const nextBtn = document.getElementById('text-next-btn');
+      const cardTitle = document.getElementById('text-card-title');
+      const pointsList = document.getElementById('points-list');
+      const notesContent = document.getElementById('notes-content');
+
+      if (textCards.length === 0) {
+        sliderWrapper.style.display = 'none';
+        return;
+      }
+
+      sliderWrapper.style.display = 'flex';
+
+      if (textCards.length > 1) {
+        prevBtn.style.display = 'flex';
+        nextBtn.style.display = 'flex';
+      } else {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+      }
+
+      const activeCard = textCards[currentTextCardIndex];
+      cardTitle.textContent = activeCard.title;
+
+      if (activeCard.type === 'points') {
+        pointsList.innerHTML = '';
+        const lines = activeCard.content.split(/\n/);
+        lines.forEach(line => {
+          if (line.trim()) {
+            const li = document.createElement('li');
+            li.textContent = line.trim();
+            pointsList.appendChild(li);
+          }
+        });
+        pointsList.style.display = 'grid';
+        notesContent.style.display = 'none';
+      } else {
+        notesContent.textContent = activeCard.content;
+        pointsList.style.display = 'none';
+        notesContent.style.display = 'block';
+      }
+    }
+
+    function updateSlider() {
+      const img = document.getElementById('protocol-image');
+      img.src = currentImages[currentImageIndex] || '';
+
+      const prevBtn = document.getElementById('prev-btn');
+      const nextBtn = document.getElementById('next-btn');
+
+      if (currentImages.length <= 1) {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+      } else {
+        prevBtn.style.display = 'flex';
+        nextBtn.style.display = 'flex';
+      }
+    }
+
+    function changeImage(direction) {
+      currentImageIndex += direction;
+      if (currentImageIndex < 0) currentImageIndex = currentImages.length - 1;
+      if (currentImageIndex >= currentImages.length) currentImageIndex = 0;
+      updateSlider();
+    }
+
+    function filterProtocols() {
+      const text = document.getElementById('search').value.toLowerCase();
+      const filtered = protocols.filter(p => p.name.toLowerCase().includes(text));
+      renderList(filtered);
+    }
+
+    function openEditMode(item) {
+      if (!isAdmin) return;
+      editingId = item.id;
+      document.getElementById('form-header').textContent = 'Protokolü Güncelle';
+      document.getElementById('new-title').value = item.name;
+      document.getElementById('new-points').value = item.points || '';
+      document.getElementById('new-notes').value = item.notes || '';
+
+      document.getElementById('form-accordion').setAttribute('open', '');
+
+      const saveBtn = document.getElementById('save-btn');
+      saveBtn.textContent = 'Güncelle ve Kaydet';
+      saveBtn.style.background = '#059669';
+      document.getElementById('cancel-btn').style.display = 'block';
+    }
+
+    async function uploadImageToStorage(file) {
+      const cleanName = file.name
+        .replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
+        .replace(/ü/g, 'u').replace(/Ü/g, 'U')
+        .replace(/ş/g, 's').replace(/Ş/g, 'S')
+        .replace(/ı/g, 'i').replace(/İ/g, 'I')
+        .replace(/ö/g, 'o').replace(/Ö/g, 'O')
+        .replace(/ç/g, 'c').replace(/Ç/g, 'C')
+        .replace(/[^a-zA-Z0-9.-]/g, '_');
+
+      const fileName = `${Date.now()}_${cleanName}`;
+      
+      const { data, error } = await _supabase.storage
+        .from('protocol-images')
+        .upload(fileName, file);
+
+      if (error) {
+        console.error("Görsel yükleme hatası:", error);
+        alert("Görsel yüklenemedi: " + error.message);
+        return null;
+      }
+
+      const { data: publicUrlData } = _supabase.storage
+        .from('protocol-images')
+        .getPublicUrl(fileName);
+
+      return publicUrlData.publicUrl;
+    }
+
+    async function addNewProtocol() {
+      if (!isAdmin) {
+        alert("Bu işlemi yapmak için yetkiniz yok.");
+        return;
+      }
+
+      const title = document.getElementById('new-title').value;
+      const points = document.getElementById('new-points').value;
+      const notes = document.getElementById('new-notes').value;
+      const fileInput1 = document.getElementById('new-img1');
+
+      if (!title) {
+        alert("Lütfen protokol adını girin!");
+        return;
+      }
+
+      const saveBtn = document.getElementById('save-btn');
+      saveBtn.textContent = "Yükleniyor...";
+      saveBtn.disabled = true;
+
+      let newImages = [];
+
+      if (fileInput1.files.length > 0) {
+        for (let i = 0; i < fileInput1.files.length; i++) {
+          const url = await uploadImageToStorage(fileInput1.files[i]);
+          if (url) newImages.push(url);
+        }
+      }
+
+      if (editingId) {
+        const existing = protocols.find(p => p.id === editingId);
+        const updatedImages = newImages.length > 0 ? newImages : (existing ? existing.images : []);
+
+        const { error } = await _supabase
+          .from('protocols')
+          .update({ name: title, points: points, notes: notes, images: updatedImages })
+          .eq('id', editingId);
+
+        if (error) alert("Güncelleme hatası: " + error.message);
+      } else {
+        const { error } = await _supabase
+          .from('protocols')
+          .insert([{ name: title, points: points, notes: notes, images: newImages }]);
+
+        if (error) alert("Kayıt hatası: " + error.message);
+      }
+
+      saveBtn.disabled = false;
+      await loadProtocolsFromCloud();
+      resetForm();
+    }
+
+    async function deleteProtocol(id) {
+      if (!isAdmin) return;
+      if (confirm("Bu protokolü silmek istediğinize emin misiniz?")) {
+        const { error } = await _supabase
+          .from('protocols')
+          .delete()
+          .eq('id', id);
+
+        if (error) {
+          alert("Silme hatası: " + error.message);
+          return;
+        }
+
+        await loadProtocolsFromCloud();
+        document.getElementById('card').style.display = 'none';
+        document.getElementById('text-slider-wrapper').style.display = 'none';
+        document.getElementById('title').textContent = 'Bir Protokol Seçin';
+      }
+    }
+
+    function resetForm() {
+      editingId = null;
+      document.getElementById('form-header').textContent = 'Yeni Protokol Ekle';
+      document.getElementById('new-title').value = '';
+      document.getElementById('new-points').value = '';
+      document.getElementById('new-notes').value = '';
+      document.getElementById('new-img1').value = '';
+
+      const saveBtn = document.getElementById('save-btn');
+      saveBtn.textContent = 'Kaydet ve Ekle';
+      saveBtn.style.background = '#4f46e5';
+      document.getElementById('cancel-btn').style.display = 'none';
+      handleResponsiveForm();
+    }
+
+    window.addEventListener('resize', handleResponsiveForm);
+    handleResponsiveForm();
+    
+    loadProtocolsFromCloud();
+  </script>
+
+</body>
+</html>
