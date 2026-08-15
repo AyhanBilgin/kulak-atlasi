@@ -379,53 +379,65 @@
 
     // --- OTURUM VE AUTH İŞLEMLERİ ---
 
-    async function checkAuthSession() {
-      // Varsayılan kilit konumu
+ // --- OTURUM VE AUTH İŞLEMLERİ ---
+
+async function checkAuthSession() {
+  // Eğer URL'de Supabase token'ları varsa, Supabase'in bunu işlemesine izin ver
+  if (window.location.hash && window.location.hash.includes('access_token')) {
+    showAuthMessage("Giriş doğrulanıyor, lütfen bekleyin...", "green");
+    return; // onAuthStateChange olayı 'SIGNED_IN' olarak tetiklenecek
+  }
+
+  const { data: { session } } = await _supabase.auth.getSession();
+  await handleUserSession(session);
+}
+
+async function handleUserSession(session) {
+  if (session && session.user) {
+    const userEmail = session.user.email ? session.user.email.toLowerCase().trim() : '';
+    showAuthMessage("Erişim yetkiniz kontrol ediliyor...", "green");
+    
+    // Whitelist kontrolü
+    const { data: allowedData, error } = await _supabase
+      .from('allowed_users')
+      .select('email')
+      .ilike('email', userEmail);
+
+    if (error || !allowedData || allowedData.length === 0) {
+      await _supabase.auth.signOut();
+      showAuthMessage("⚠️ '" + userEmail + "' adresi yetkili erişim listesinde bulunmuyor.", "red");
       document.body.classList.remove('authenticated');
       document.getElementById('auth-container').style.display = 'flex';
-
-      const { data: { session } } = await _supabase.auth.getSession();
-      
-      if (session && session.user) {
-        const userEmail = session.user.email ? session.user.email.toLowerCase().trim() : '';
-        showAuthMessage("Erişim yetkiniz kontrol ediliyor...", "green");
-        
-        // Whitelist kontrolü (allowed_users tablosunda büyük/küçük harf ve boşluk duyarsız arama)
-        const { data: allowedData, error } = await _supabase
-          .from('allowed_users')
-          .select('email')
-          .ilike('email', userEmail);
-
-        if (error || !allowedData || allowedData.length === 0) {
-          // İzinli listede YOKSA: Oturumu tamamen kapat ve engelle
-          await _supabase.auth.signOut();
-          showAuthMessage("⚠️ '" + userEmail + "' adresi yetkili erişim listesinde bulunmuyor.", "red");
-          document.body.classList.remove('authenticated');
-          document.getElementById('auth-container').style.display = 'flex';
-          return;
-        }
-
-        // İzinli listede VARSA: Uygulamayı aç
-        document.body.classList.add('authenticated');
-        document.getElementById('auth-container').style.display = 'none';
-        document.getElementById('current-user-email').textContent = `👤 ${userEmail}`;
-        document.getElementById('auth-message').textContent = '';
-        loadProtocolsFromCloud();
-      } else {
-        document.body.classList.remove('authenticated');
-        document.getElementById('auth-container').style.display = 'flex';
-      }
+      return;
     }
 
-    // Supabase Oturum Değişikliklerini Dinleme
-    _supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        await checkAuthSession();
-      } else if (event === 'SIGNED_OUT') {
-        document.body.classList.remove('authenticated');
-        document.getElementById('auth-container').style.display = 'flex';
-      }
-    });
+    // Yetkili kullanıcı
+    document.body.classList.add('authenticated');
+    document.getElementById('auth-container').style.display = 'none';
+    document.getElementById('current-user-email').textContent = `👤 ${userEmail}`;
+    document.getElementById('auth-message').textContent = '';
+
+    // URL'deki #access_token=... kısmını temizleyerek şık bir görünüm sağla
+    if (window.location.hash) {
+      history.replaceState(null, document.title, window.location.pathname + window.location.search);
+    }
+
+    loadProtocolsFromCloud();
+  } else {
+    document.body.classList.remove('authenticated');
+    document.getElementById('auth-container').style.display = 'flex';
+  }
+}
+
+// Supabase Oturum Değişikliklerini Dinleme
+_supabase.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+    await handleUserSession(session);
+  } else if (event === 'SIGNED_OUT') {
+    document.body.classList.remove('authenticated');
+    document.getElementById('auth-container').style.display = 'flex';
+  }
+});
 
     async function handleLogin() {
       const emailInput = document.getElementById('login-email').value.toLowerCase().trim();
