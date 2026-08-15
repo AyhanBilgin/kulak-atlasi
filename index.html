@@ -390,11 +390,11 @@
         const userEmail = session.user.email ? session.user.email.toLowerCase().trim() : '';
         showAuthMessage("Erişim yetkiniz kontrol ediliyor...", "green");
         
-        // Whitelist kontrolü (allowed_users tablosunda e-posta var mı?)
+        // Whitelist kontrolü (allowed_users tablosunda büyük/küçük harf ve boşluk duyarsız arama)
         const { data: allowedData, error } = await _supabase
           .from('allowed_users')
           .select('email')
-          .eq('email', userEmail);
+          .ilike('email', userEmail);
 
         if (error || !allowedData || allowedData.length === 0) {
           // İzinli listede YOKSA: Oturumu tamamen kapat ve engelle
@@ -428,7 +428,7 @@
     });
 
     async function handleLogin() {
-      const emailInput = document.getElementById('login-email').value.trim();
+      const emailInput = document.getElementById('login-email').value.toLowerCase().trim();
       const loginBtn = document.getElementById('login-btn');
 
       if (!emailInput) {
