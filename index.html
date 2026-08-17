@@ -9,7 +9,23 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      -webkit-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+    
+    img {
+      -webkit-user-drag: none;
+      user-drag: none;
+      pointer-events: none;
+    }
+
     body { display: flex; height: 100vh; background-color: #f4f6f9; }
     
     /* Giriş Ekranı Stili */
@@ -43,6 +59,8 @@
       border: 1px solid #cbd5e1;
       border-radius: 6px;
       font-size: 0.95rem;
+      -webkit-user-select: text;
+      user-select: text;
     }
     .auth-card button {
       width: 100%;
@@ -73,7 +91,15 @@
     .sidebar { width: 340px; background: #ffffff; border-right: 1px solid #e0e0e0; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; flex-shrink: 0; }
     .sidebar-content { overflow-y: auto; flex: 1; max-height: 480px; }
     .sidebar h2 { margin-bottom: 15px; font-size: 1.2rem; color: #333; }
-    .sidebar input[type="text"] { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 6px; }
+    .sidebar input[type="text"] { 
+      width: 100%; 
+      padding: 10px; 
+      margin-bottom: 15px; 
+      border: 1px solid #ccc; 
+      border-radius: 6px; 
+      -webkit-user-select: text; 
+      user-select: text; 
+    }
     .sidebar ul { list-style: none; }
     .sidebar li { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; height: 42px; }
     .sidebar li:hover { background-color: #eef2ff; color: #4f46e5; }
@@ -102,7 +128,16 @@
     .form-accordion[open] .accordion-icon { transform: rotate(180deg); }
 
     .add-form label { font-size: 0.75rem; color: #666; display: block; margin-top: 6px; }
-    .add-form input, .add-form textarea, .add-form button { width: 100%; margin-bottom: 8px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; }
+    .add-form input, .add-form textarea, .add-form button { 
+      width: 100%; 
+      margin-bottom: 8px; 
+      padding: 8px; 
+      border: 1px solid #ccc; 
+      border-radius: 4px; 
+      font-size: 0.85rem; 
+      -webkit-user-select: text; 
+      user-select: text; 
+    }
     .add-form textarea { resize: vertical; height: 70px; }
     .btn-group { display: flex; gap: 5px; margin-top: 5px; }
     .add-form button { background: #4f46e5; color: white; border: none; cursor: pointer; font-weight: bold; padding: 10px; }
@@ -253,12 +288,13 @@
     }
   </style>
 
-  <!-- PWA Tanımlamaları & Apple iOS Desteği -->
+  <!-- PWA Tanımlamaları & iOS / Android Tam Destek -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#4f46e5">
   
+  <!-- Apple iOS Desteği -->
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Kulak Atlası">
   
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -346,7 +382,7 @@
       <div class="slider-wrapper" id="card" style="display: none;">
         <button class="nav-arrow arrow-left" onclick="changeImage(-1)" id="prev-btn">◀</button>
         <div class="image-card">
-          <img id="protocol-image" src="" alt="Tedavi Görseli">
+          <img id="protocol-image" src="" alt="Tedavi Görseli" oncontextmenu="return false;">
         </div>
         <button class="nav-arrow arrow-right" onclick="changeImage(1)" id="next-btn">▶</button>
       </div>
@@ -377,67 +413,79 @@
     let textCards = [];
     let currentTextCardIndex = 0;
 
+    // --- KORUMA VE İNDİRME ENGELLEME ---
+    document.addEventListener('contextmenu', event => event.preventDefault());
+
+    document.addEventListener('keydown', function (e) {
+      if (
+        e.keyCode === 123 ||
+        (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) ||
+        (e.ctrlKey && (e.keyCode === 85 || e.keyCode === 83 || e.keyCode === 65 || e.keyCode === 80))
+      ) {
+        e.preventDefault();
+        return false;
+      }
+    });
+
     // --- OTURUM VE AUTH İŞLEMLERİ ---
 
-// --- OTURUM VE AUTH İŞLEMLERİ ---
+    async function checkAuthSession() {
+      // Eğer URL'de Supabase token'ları varsa, Supabase'in bunu işlemesine izin ver
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        showAuthMessage("Giriş doğrulanıyor, lütfen bekleyin...", "green");
+        return; // onAuthStateChange olayı 'SIGNED_IN' olarak tetiklenecek
+      }
 
-async function checkAuthSession() {
-  // Eğer URL'de Supabase token'ları varsa, Supabase'in bunu işlemesine izin ver
-  if (window.location.hash && window.location.hash.includes('access_token')) {
-    showAuthMessage("Giriş doğrulanıyor, lütfen bekleyin...", "green");
-    return; // onAuthStateChange olayı 'SIGNED_IN' olarak tetiklenecek
-  }
-
-  const { data: { session } } = await _supabase.auth.getSession();
-  await handleUserSession(session);
-}
-
-async function handleUserSession(session) {
-  if (session && session.user) {
-    const userEmail = session.user.email ? session.user.email.toLowerCase().trim() : '';
-    showAuthMessage("Erişim yetkiniz kontrol ediliyor...", "green");
-    
-    // Whitelist kontrolü
-    const { data: allowedData, error } = await _supabase
-      .from('allowed_users')
-      .select('email')
-      .ilike('email', userEmail);
-
-    if (error || !allowedData || allowedData.length === 0) {
-      await _supabase.auth.signOut();
-      showAuthMessage("⚠️ '" + userEmail + "' adresi yetkili erişim listesinde bulunmuyor.", "red");
-      document.body.classList.remove('authenticated');
-      document.getElementById('auth-container').style.display = 'flex';
-      return;
+      const { data: { session } } = await _supabase.auth.getSession();
+      await handleUserSession(session);
     }
 
-    // Yetkili kullanıcı
-    document.body.classList.add('authenticated');
-    document.getElementById('auth-container').style.display = 'none';
-    document.getElementById('current-user-email').textContent = `👤 ${userEmail}`;
-    document.getElementById('auth-message').textContent = '';
+    async function handleUserSession(session) {
+      if (session && session.user) {
+        const userEmail = session.user.email ? session.user.email.toLowerCase().trim() : '';
+        showAuthMessage("Erişim yetkiniz kontrol ediliyor...", "green");
+        
+        // ÇÖZÜM 2 ENTEGRASYONU: .ilike() yerine .eq() ile birebir kontrol
+        const { data: allowedData, error } = await _supabase
+          .from('allowed_users')
+          .select('email')
+          .eq('email', userEmail);
 
-    // URL'deki #access_token=... kısmını temizleyerek şık bir görünüm sağla
-    if (window.location.hash) {
-      history.replaceState(null, document.title, window.location.pathname + window.location.search);
+        if (error || !allowedData || allowedData.length === 0) {
+          await _supabase.auth.signOut();
+          showAuthMessage("⚠️ '" + userEmail + "' adresi yetkili erişim listesinde bulunmuyor.", "red");
+          document.body.classList.remove('authenticated');
+          document.getElementById('auth-container').style.display = 'flex';
+          return;
+        }
+
+        // Yetkili kullanıcı
+        document.body.classList.add('authenticated');
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('current-user-email').textContent = `👤 ${userEmail}`;
+        document.getElementById('auth-message').textContent = '';
+
+        // URL'deki #access_token=... kısmını temizleyerek şık bir görünüm sağla
+        if (window.location.hash) {
+          history.replaceState(null, document.title, window.location.pathname + window.location.search);
+        }
+
+        loadProtocolsFromCloud();
+      } else {
+        document.body.classList.remove('authenticated');
+        document.getElementById('auth-container').style.display = 'flex';
+      }
     }
 
-    loadProtocolsFromCloud();
-  } else {
-    document.body.classList.remove('authenticated');
-    document.getElementById('auth-container').style.display = 'flex';
-  }
-}
-
-// Supabase Oturum Değişikliklerini Dinleme
-_supabase.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-    await handleUserSession(session);
-  } else if (event === 'SIGNED_OUT') {
-    document.body.classList.remove('authenticated');
-    document.getElementById('auth-container').style.display = 'flex';
-  }
-});
+    // Supabase Oturum Değişikliklerini Dinleme
+    _supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        await handleUserSession(session);
+      } else if (event === 'SIGNED_OUT') {
+        document.body.classList.remove('authenticated');
+        document.getElementById('auth-container').style.display = 'flex';
+      }
+    });
 
     async function handleLogin() {
       const emailInput = document.getElementById('login-email').value.toLowerCase().trim();
