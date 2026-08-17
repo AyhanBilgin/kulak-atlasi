@@ -430,61 +430,65 @@
     // --- OTURUM VE AUTH İŞLEMLERİ ---
 
     async function checkAuthSession() {
-      // Eğer URL'de Supabase token'ları varsa, Supabase'in bunu işlemesine izin ver
-      if (window.location.hash && window.location.hash.includes('access_token')) {
-        showAuthMessage("Giriş doğrulanıyor, lütfen bekleyin...", "green");
-        return; // onAuthStateChange olayı 'SIGNED_IN' olarak tetiklenecek
-      }
+  try {
+    const { data: { session }, error } = await _supabase.auth.getSession();
+    if (error) throw error;
+    await handleUserSession(session);
+  } catch (err) {
+    console.error("Session hatası:", err);
+    showAuthMessage("Oturum doğrulanırken bir hata oluştu.", "red");
+  }
+}
 
-      const { data: { session } } = await _supabase.auth.getSession();
-      await handleUserSession(session);
-    }
-
-    async function handleUserSession(session) {
+async function handleUserSession(session) {
   if (session && session.user) {
     const userEmail = session.user.email ? session.user.email.toLowerCase().trim() : '';
     showAuthMessage("Erişim yetkiniz kontrol ediliyor...", "green");
     
-    // Tablodan e-postaları çekip JavaScript tarafında büyük/küçük harf duyarsız kontrol edelim
-    const { data: allowedData, error } = await _supabase
-      .from('allowed_users')
-      .select('email');
+    try {
+      // Tablodan izinli e-postaları çekiyoruz
+      const { data: allowedData, error } = await _supabase
+        .from('allowed_users')
+        .select('email');
 
-    if (error) {
-      console.error("Supabase Sorgu Hatası:", error);
-      showAuthMessage("Veritabanı kontrol hatası: " + error.message, "red");
-      return;
+      if (error) {
+        console.error("Veritabanı hatası:", error);
+        showAuthMessage("Yetki kontrolü yapılamadı: " + error.message, "red");
+        return;
+      }
+
+      const isAllowed = allowedData && allowedData.some(
+        row => row.email && row.email.toLowerCase().trim() === userEmail
+      );
+
+      if (!isAllowed) {
+        await _supabase.auth.signOut();
+        showAuthMessage("⚠️ '" + userEmail + "' adresi yetkili erişim listesinde bulunmuyor.", "red");
+        document.body.classList.remove('authenticated');
+        document.getElementById('auth-container').style.display = 'flex';
+        return;
+      }
+
+      // Yetkili Kullanıcı Girişi
+      document.body.classList.add('authenticated');
+      document.getElementById('auth-container').style.display = 'none';
+      document.getElementById('current-user-email').textContent = `👤 ${userEmail}`;
+      document.getElementById('auth-message').textContent = '';
+
+      if (window.location.hash) {
+        history.replaceState(null, document.title, window.location.pathname + window.location.search);
+      }
+
+      loadProtocolsFromCloud();
+    } catch (err) {
+      console.error("Beklenmeyen hata:", err);
+      showAuthMessage("Bir hata oluştu: " + err.message, "red");
     }
-
-    const isAllowed = allowedData && allowedData.some(
-      row => row.email && row.email.toLowerCase().trim() === userEmail
-    );
-
-    if (!isAllowed) {
-      await _supabase.auth.signOut();
-      showAuthMessage("⚠️ '" + userEmail + "' adresi yetkili erişim listesinde bulunmuyor.", "red");
-      document.body.classList.remove('authenticated');
-      document.getElementById('auth-container').style.display = 'flex';
-      return;
-    }
-
-    // Yetkili kullanıcı
-    document.body.classList.add('authenticated');
-    document.getElementById('auth-container').style.display = 'none';
-    document.getElementById('current-user-email').textContent = `👤 ${userEmail}`;
-    document.getElementById('auth-message').textContent = '';
-
-    if (window.location.hash) {
-      history.replaceState(null, document.title, window.location.pathname + window.location.search);
-    }
-
-    loadProtocolsFromCloud();
   } else {
     document.body.classList.remove('authenticated');
     document.getElementById('auth-container').style.display = 'flex';
   }
 }
-
     async function handleLogin() {
       const emailInput = document.getElementById('login-email').value.toLowerCase().trim();
       const loginBtn = document.getElementById('login-btn');
