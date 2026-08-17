@@ -429,14 +429,25 @@
 
     // --- OTURUM VE AUTH İŞLEMLERİ ---
 
-    async function checkAuthSession() {
+  // Sayfa yüklendiğinde ve yönlendirmelerde oturumu kontrol et
+async function checkAuthSession() {
+  // Hash kontrolünü zaman aşımı korumasıyla yapıyoruz
+  if (window.location.hash && window.location.hash.includes('access_token')) {
+    showAuthMessage("Giriş doğrulanıyor, lütfen bekleyin...", "green");
+  }
+
   try {
-    const { data: { session }, error } = await _supabase.auth.getSession();
-    if (error) throw error;
-    await handleUserSession(session);
+    // Mobil cihazlarda ağ yavaşlığına karşı getSession için timeout ekliyoruz
+    const sessionPromise = _supabase.auth.getSession();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Bağlantı zaman aşımına uğradı.")), 8000)
+    );
+
+    const { data } = await Promise.race([sessionPromise, timeoutPromise]);
+    await handleUserSession(data ? data.session : null);
   } catch (err) {
     console.error("Session hatası:", err);
-    showAuthMessage("Oturum doğrulanırken bir hata oluştu.", "red");
+    showAuthMessage("Oturum doğrulanamadı. Lütfen sayfayı yenileyip tekrar deneyin.", "red");
   }
 }
 
@@ -446,14 +457,14 @@ async function handleUserSession(session) {
     showAuthMessage("Erişim yetkiniz kontrol ediliyor...", "green");
     
     try {
-      // Tablodan izinli e-postaları çekiyoruz
+      // Direct Query yerine RLS sorunsuz tablo okuma
       const { data: allowedData, error } = await _supabase
         .from('allowed_users')
         .select('email');
 
       if (error) {
-        console.error("Veritabanı hatası:", error);
-        showAuthMessage("Yetki kontrolü yapılamadı: " + error.message, "red");
+        console.error("Veritabanı kontrol hatası:", error);
+        showAuthMessage("Yetki kontrol hatası: " + error.message, "red");
         return;
       }
 
@@ -469,19 +480,20 @@ async function handleUserSession(session) {
         return;
       }
 
-      // Yetkili Kullanıcı Girişi
+      // Giriş Başarılı
       document.body.classList.add('authenticated');
       document.getElementById('auth-container').style.display = 'none';
       document.getElementById('current-user-email').textContent = `👤 ${userEmail}`;
       document.getElementById('auth-message').textContent = '';
 
+      // Telefonda URL'deki karmaşık token kısmını temizle
       if (window.location.hash) {
         history.replaceState(null, document.title, window.location.pathname + window.location.search);
       }
 
       loadProtocolsFromCloud();
     } catch (err) {
-      console.error("Beklenmeyen hata:", err);
+      console.error("Hata oluştu:", err);
       showAuthMessage("Bir hata oluştu: " + err.message, "red");
     }
   } else {
