@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hızlı Görsel Galerisi</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; user-select: none; -webkit-user-select: none; }
+    body { background: #f4f6f9; padding: 20px; }
+    .header { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto 20px; background: white; padding: 15px 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .tab-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tab-btn { padding: 8px 14px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: 0.2s; }
+    .tab-btn.active-protocol { background: #4f46e5; color: white; border-color: #4f46e5; }
+    .tab-btn.active-map { background: #059669; color: white; border-color: #059669; }
+    .search-box { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; width: 220px; user-select: text; -webkit-user-select: text; }
+    .back-btn { padding: 8px 15px; background: #334155; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 0.85rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; }
+    .card { background: white; padding: 12px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
+    .card img { width: 100%; height: 220px; object-fit: contain; pointer-events: none; -webkit-user-drag: none; margin-bottom: 8px; }
+    .card-title { font-size: 0.9rem; font-weight: 600; color: #1e293b; }
+    @media (max-width: 600px) { .search-box { width: 100%; } }
+  </style>
+</head>
+<body oncontextmenu="return false;">
+  <div class="header">
+    <div class="tab-buttons">
+      <button id="btn-protocols" class="tab-btn" onclick="switchCategory('protocols')">📋 Protokol Görselleri</button>
+      <button id="btn-ear_maps" class="tab-btn" onclick="switchCategory('ear_maps')">🗺️ Kulak Haritası Görselleri</button>
+    </div>
+    <input type="text" id="gallery-search" class="search-box" placeholder="Görsel ara..." onkeyup="filterGallery()">
+    <a href="index.html" class="back-btn">← Atlasa Dön</a>
+  </div>
+  
+  <div class="grid" id="gallery">Görseller yükleniyor...</div>
+
+  <script>
+    const SUPABASE_URL = "https://bxdieehllivgsywsyusu.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_CduozESdThk6nrsqlHGcbw_fu8WxBOQ";
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    let currentItems = [];
+
+    async function initGallery() {
+      const { data: { session } } = await _supabase.auth.getSession();
+      if (!session) {
+        window.location.href = "index.html";
+        return;
+      }
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const initialTable = urlParams.get('tablo') === 'ear_maps' ? 'ear_maps' : 'protocols';
+      await switchCategory(initialTable);
+    }
+
+    async function switchCategory(tableName) {
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = '<p>Görseller yükleniyor...</p>';
+      document.getElementById('gallery-search').value = '';
+
+      // Aktif buton görünümünü güncelle
+      document.getElementById('btn-protocols').className = tableName === 'protocols' ? 'tab-btn active-protocol' : 'tab-btn';
+      document.getElementById('btn-ear_maps').className = tableName === 'ear_maps' ? 'tab-btn active-map' : 'tab-btn';
+
+      // İlgili tablodan name ve images sütunlarını çek
+      const { data, error } = await _supabase
+        .from(tableName)
+        .select('name, images')
+        .order('name', { ascending: true });
+
+      if (error) {
+        gallery.innerHTML = `<p style="color:red;">Hata: ${error.message}</p>`;
+        return;
+      }
+
+      currentItems = [];
+      (data || []).forEach(item => {
+        if (Array.isArray(item.images)) {
+          item.images.filter(Boolean).forEach((url, index) => {
+            currentItems.push({
+              title: item.images.length > 1 ? `${item.name} (${index + 1})` : item.name,
+              url: url
+            });
+          });
+        }
+      });
+
+      renderGallery(currentItems);
+    }
+
+    function renderGallery(items) {
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = '';
+
+      if (items.length === 0) {
+        gallery.innerHTML = '<p>Bu kategoride gösterilecek görsel bulunamadı.</p>';
+        return;
+      }
+
+      items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <img src="${item.url}" loading="lazy">
+          <div class="card-title">${item.title}</div>
+        `;
+        gallery.appendChild(div);
+      });
+    }
+
+    function filterGallery() {
+      const query = document.getElementById('gallery-search').value.toLowerCase().trim();
+      const filtered = currentItems.filter(item => item.title.toLowerCase().includes(query));
+      renderGallery(filtered);
+    }
+
+    initGallery();
+  </script>
+</body>
+</html>
